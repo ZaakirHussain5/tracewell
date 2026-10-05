@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tracewell
+      POSTGRES_USER: tracewell
+      POSTGRES_PASSWORD: tracewell
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tracewell -d tracewell"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: ./backend
+    ports:
+      - "43110:8000"
+    environment:
+      DATABASE_URL: postgres://tracewell:tracewell@db:5432/tracewell
+      DJANGO_DEBUG: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  ui:
+    build: ./frontend
+    ports:
+      - "43111:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
